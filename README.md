@@ -6,35 +6,35 @@
 
 
 
-![googlesheet1](image/unnamed (1).png)
+![googlesheet1](image/week_close.png)
 
 
 
-![googlesheet1](image/unnamed (2).png)
+![googlesheet1](image/week_high.png)
 
 
 
-![googlesheet1](image/unnamed (3).png)
+![googlesheet1](image/week_low.png)
 
 
-![googlesheet1](image/unnamed (4).png)
+![googlesheet1](image/month_high.png)
 
 
-![googlesheet1](image/unnamed (5).png)
+![googlesheet1](image/month_low.png)
 
 
-![googlesheet1](image/unnamed (6.png)
-
-
-
-![googlesheet1](image/unnamed (7.png)
+![googlesheet1](image/month_close.png)
 
 
 
-![googlesheet1](image/unnamed (8.png)
+![googlesheet1](image/year_close.png)
 
 
-![googlesheet1](image/unnamed (9.png)
+
+![googlesheet1](image/year_high.png)
+
+
+![googlesheet1](image/year_low.png)
 
 
 ![googlesheet1](image/1.png)
