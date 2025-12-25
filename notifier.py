@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 class StockNotifier:
     def __init__(self):
+        # 從環境變數讀取金鑰與 ID
         self.tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
         self.tg_chat_id = os.getenv("TELEGRAM_CHAT_ID")
         self.resend_api_key = os.getenv("RESEND_API_KEY")
@@ -23,37 +24,60 @@ class StockNotifier:
         """發送 Telegram 即時簡報"""
         if not self.tg_token or not self.tg_chat_id:
             return False
+        
+        # 取得簡短時間戳
         ts = self.get_now_time_str().split(" ")[1]
         full_message = f"{message}\n\n🕒 <i>Sent at {ts} (UTC+8)</i>"
+        
         url = f"https://api.telegram.org/bot{self.tg_token}/sendMessage"
-        payload = {"chat_id": self.tg_chat_id, "text": full_message, "parse_mode": "HTML"}
+        payload = {
+            "chat_id": self.tg_chat_id, 
+            "text": full_message, 
+            "parse_mode": "HTML"
+        }
         try:
             requests.post(url, json=payload, timeout=10)
             return True
-        except:
+        except Exception as e:
+            print(f"⚠️ Telegram 發送失敗: {e}")
             return False
 
     def send_stock_report(self, market_name, img_data, report_df, text_reports, stats=None):
         """
-        🚀 專業版更新：整合智慧快取統計、六國專業平台跳轉與動能矩陣圖
-        優化：智慧匹配邏輯，支援中文名稱識別
+        🚀 專業版更新：整合智慧下載統計、六國專業平台跳轉
+        支援：將下載器 (Downloader) 的統計結果完美呈現於 HTML 報表頂端
         """
+        # 🟢 Debug 訊息：方便在終端機確認 main.py 傳進來的數值
+        print(f"DEBUG: notifier 正在處理 {market_name} 報告 (Stats: {stats})")
+
         if not self.resend_api_key:
             print("⚠️ 缺少 Resend API Key，無法寄信。")
             return False
 
         report_time = self.get_now_time_str()
         
-        # --- 1. 處理下載統計數據 ---
-        total_count = stats.get('total', 'N/A') if stats else 'N/A'
-        success_count = stats.get('success', len(report_df)) if stats else len(report_df)
-        fail_count = stats.get('fail', 0) if stats else 0
-        success_rate = f"{(success_count/total_count)*100:.1f}%" if isinstance(total_count, (int, float)) and total_count > 0 else "N/A"
+        # --- 1. 處理下載統計數據 (防止 0 或 None 導致報表崩潰) ---
+        if stats is None:
+            stats = {}
 
-        # --- 💡 智慧匹配平台名稱 (對接 analyzer.py 之 get_market_url 邏輯) ---
-        # 同時檢查小寫 ID 以及 market_name 中文字眼
-        m_id = market_name.lower()
+        # 應收標的：優先從 stats 拿，拿不到就看 report_df
+        total_count = stats.get('total', len(report_df))
+        # 成功家數
+        success_count = stats.get('success', len(report_df))
         
+        # 計算今日覆蓋率 (百分比)
+        try:
+            total_val = int(total_count)
+            success_val = int(success_count)
+            if total_val > 0:
+                success_rate = f"{(success_val / total_val) * 100:.1f}%"
+            else:
+                success_rate = "0.0% (清單獲取異常)"
+        except:
+            success_rate = "N/A"
+
+        # --- 💡 智慧匹配平台跳轉連結 ---
+        m_id = market_name.lower()
         if "us" in m_id or "美國" in market_name:
             p_name, p_url = "StockCharts", "https://stockcharts.com/"
         elif "hk" in m_id or "香港" in market_name:
@@ -65,7 +89,6 @@ class StockNotifier:
         elif "kr" in m_id or "韓國" in market_name:
             p_name, p_url = "Naver Finance", "https://finance.naver.com/"
         else:
-            # 預設為台灣市場
             p_name, p_url = "玩股網 (WantGoo)", "https://www.wantgoo.com/"
 
         # --- 2. 構建 HTML 內容 ---
@@ -77,28 +100,28 @@ class StockNotifier:
                 <p style="color: #666;">生成時間: <b>{report_time} (台北時間)</b></p>
                 
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; display: flex; justify-content: space-around; border: 1px solid #eee; text-align: center;">
-                    <div>
+                    <div style="flex: 1;">
                         <div style="font-size: 12px; color: #888;">應收標的</div>
                         <div style="font-size: 18px; font-weight: bold;">{total_count}</div>
                     </div>
-                    <div>
+                    <div style="flex: 1; border-left: 1px solid #eee; border-right: 1px solid #eee;">
                         <div style="font-size: 12px; color: #888;">更新成功(含快取)</div>
                         <div style="font-size: 18px; font-weight: bold; color: #28a745;">{success_count}</div>
                     </div>
-                    <div>
+                    <div style="flex: 1;">
                         <div style="font-size: 12px; color: #888;">今日覆蓋率</div>
                         <div style="font-size: 18px; font-weight: bold; color: #1a73e8;">{success_rate}</div>
                     </div>
                 </div>
 
                 <p style="background-color: #fff9db; padding: 12px; border-left: 4px solid #fcc419; font-size: 14px; color: #666; margin: 20px 0;">
-                    💡 <b>提示：</b>下方的數據報表若包含股票代號，點擊可直接跳轉至 
+                    💡 <b>提示：</b>下方的數據報表若包含股票代號，可至  
                     <a href="{p_url}" target="_blank" style="color: #e67e22; text-decoration: none; font-weight: bold;">{p_name}</a> 
                     查看該市場之即時技術線圖。
                 </p>
         """
 
-        # --- 3. 插入九張矩陣圖表 ---
+        # --- 3. 插入九張分析矩陣圖表 ---
         html_content += "<div style='margin-top: 30px;'>"
         for img in img_data:
             html_content += f"""
@@ -134,17 +157,20 @@ class StockNotifier:
         attachments = []
         for img in img_data:
             try:
-                with open(img['path'], "rb") as f:
-                    attachments.append({
-                        "content": list(f.read()),
-                        "filename": f"{img['id']}.png",
-                        "content_id": img['id'],
-                        "disposition": "inline"
-                    })
+                if os.path.exists(img['path']):
+                    with open(img['path'], "rb") as f:
+                        attachments.append({
+                            "content": list(f.read()),
+                            "filename": f"{img['id']}.png",
+                            "content_id": img['id'],
+                            "disposition": "inline"
+                        })
+                else:
+                    print(f"⚠️ 圖表檔案不存在: {img['path']}")
             except Exception as e:
-                print(f"⚠️ 讀取圖表失敗 {img['path']}: {e}")
+                print(f"⚠️ 處理圖表附件失敗 {img['id']}: {e}")
 
-        # --- 6. 寄送 ---
+        # --- 6. 寄送 Resend 郵件 ---
         try:
             resend.Emails.send({
                 "from": "StockMonitor <onboarding@resend.dev>",
@@ -153,11 +179,12 @@ class StockNotifier:
                 "html": html_content,
                 "attachments": attachments
             })
-            print(f"✅ {market_name} 報告已寄送！")
+            print(f"✅ {market_name} 郵件報告已寄送！")
             
-            # Telegram 簡報
-            tg_msg = f"📊 <b>{market_name} 監控報表已送達</b>\n成功率: {success_rate}\n樣本: {success_count} 檔"
+            # --- 7. 發送 Telegram 簡報 ---
+            tg_msg = f"📊 <b>{market_name} 監控報表已送達</b>\n涵蓋率: {success_rate}\n處理樣本: {success_count} 檔"
             self.send_telegram(tg_msg)
+            
             return True
         except Exception as e:
             print(f"❌ 寄送失敗: {e}")
