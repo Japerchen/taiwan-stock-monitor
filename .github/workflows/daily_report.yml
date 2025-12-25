@@ -2,86 +2,65 @@ name: Global Market Monitor Parallel
 
 on:
   schedule:
-    - cron: '30 10 * * 1-5'
+    - cron: '30 10 * * 1-5' # 台北時間 18:30 (UTC 10:30)
   workflow_dispatch:
     inputs:
       market_choice:
-        description: 'Select Market'
+        description: '選擇執行市場'
         required: true
         default: 'all'
         type: choice
         options:
           - all
-          - tw-share
-          - us-share
-          - hk-share
-          - cn-share
-          - jp-share
-          - kr-share
+          - tw
+          - us
+          - hk
+          - cn
+          - jp
+          - kr
 
 jobs:
   global-market-analysis:
-    name: ${{ matrix.market.emoji }} ${{ matrix.market.name }} Analysis
+    name: ${{ matrix.market.emoji }} ${{ matrix.market.name }} Download
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         market:
-          - { id: "tw-share", name: "Taiwan", emoji: "🇹🇼" }
-          - { id: "us-share", name: "US",     emoji: "🇺🇸" }
-          - { id: "hk-share", name: "HK",     emoji: "🇭🇰" }
-          - { id: "cn-share", name: "China",  emoji: "🇨🇳" }
-          - { id: "jp-share", name: "Japan",  emoji: "🇯🇵" }
-          - { id: "kr-share", name: "Korea",  emoji: "🇰🇷" }
+          - { id: "tw", name: "Taiwan", emoji: "🇹🇼" }
+          - { id: "us", name: "US",     emoji: "🇺🇸" }
+          - { id: "hk", name: "HK",     emoji: "🇭🇰" }
+          - { id: "cn", name: "China",  emoji: "🇨🇳" }
+          - { id: "jp", name: "Japan",  emoji: "🇯🇵" }
+          - { id: "kr", name: "Korea",  emoji: "🇰🇷" }
 
     steps:
       - uses: actions/checkout@v4
-        # 💡 修改點：只有符合條件的市場才會執行接下來的步驟
         if: |
           github.event_name == 'schedule' || 
           github.event.inputs.market_choice == 'all' || 
           github.event.inputs.market_choice == matrix.market.id
 
       - name: Set up Python
-        if: |
-          github.event_name == 'schedule' || 
-          github.event.inputs.market_choice == 'all' || 
-          github.event.inputs.market_choice == matrix.market.id
+        if: success()
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Cache Stock Data
-        if: |
-          github.event_name == 'schedule' || 
-          github.event.inputs.market_choice == 'all' || 
-          github.event.inputs.market_choice == matrix.market.id
-        uses: actions/cache@v4
-        with:
-          path: |
-            data/${{ matrix.market.id }}/dayK
-            data/${{ matrix.market.id }}/lists
-          key: ${{ runner.os }}-stock-${{ matrix.market.id }}-${{ github.run_id }}
-          restore-keys: |
-            ${{ runner.os }}-stock-${{ matrix.market.id }}-
-
-      - name: Environment Setup
-        if: |
-          github.event_name == 'schedule' || 
-          github.event.inputs.market_choice == 'all' || 
-          github.event.inputs.market_choice == matrix.market.id
+      - name: Install Dependencies
+        if: success()
         run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-noto-cjk
           python -m pip install --upgrade pip
-          pip install pandas yfinance requests lxml tqdm resend matplotlib numpy xlrd pykrx tokyo-stock-exchange akshare
+          pip install -r requirements.txt
 
-      - name: Run Market Analysis
-        if: |
-          github.event_name == 'schedule' || 
-          github.event.inputs.market_choice == 'all' || 
-          github.event.inputs.market_choice == matrix.market.id
+      - name: Run Market Download
+        if: success()
         env:
+          # 💡 這裡要把你在 GitHub Repo -> Settings -> Secrets 設好的變數接進去
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: python main.py --market ${{ matrix.market.id }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GDRIVE_SERVICE_ACCOUNT: ${{ secrets.GDRIVE_SERVICE_ACCOUNT }}
+        # 💡 注意這裡的傳參方式要跟你的 main.py 一致
+        run: python main.py ${{ matrix.market.id }}
