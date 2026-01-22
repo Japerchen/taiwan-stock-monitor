@@ -28,11 +28,6 @@ jobs:
       matrix:
         market:
           - { id: "tw-share", name: "Taiwan", emoji: "🇹🇼" }
-          - { id: "us-share", name: "US",     emoji: "🇺🇸" }
-          - { id: "hk-share", name: "HK",     emoji: "🇭🇰" }
-          - { id: "cn-share", name: "China",  emoji: "🇨🇳" }
-          - { id: "jp-share", name: "Japan",  emoji: "🇯🇵" }
-          - { id: "kr-share", name: "Korea",  emoji: "🇰🇷" }
 
     steps:
       # 💡 修正點：將判斷移到第一個 Step 的 if 中
