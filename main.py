@@ -5,13 +5,9 @@ import argparse
 import traceback
 from datetime import datetime, timedelta
 
-# 導入自定義模組
+# --- 導入模組 ---
+# 僅保留台灣下載器與核心分析模組
 import downloader_tw
-import downloader_us
-import downloader_hk
-import downloader_cn
-import downloader_jp
-import downloader_kr
 import analyzer
 import notifier
 
@@ -33,24 +29,14 @@ def run_market_pipeline(market_id, market_name, emoji):
     print(f"【Step 1: 數據獲取】正在更新 {market_name} 原始 K 線資料...")
     try:
         res = None
-        # 根據市場 ID 呼叫對應的下載器主函數
+        # 僅執行台灣股市下載
         if market_id == "tw-share":
             res = downloader_tw.main()
-        elif market_id == "us-share":
-            res = downloader_us.main()
-        elif market_id == "hk-share":
-            res = downloader_hk.main()
-        elif market_id == "cn-share":
-            res = downloader_cn.main()
-        elif market_id == "jp-share":
-            res = downloader_jp.main()
-        elif market_id == "kr-share":
-            res = downloader_kr.main()
         else:
             print(f"⚠️ 未知的市場 ID: {market_id}")
             return
 
-        # ✨ 數據標準化：對接新版下載器的 return 字典
+        # ✨ 數據標準化
         if isinstance(res, dict):
             stats = res
             print(f"📊 [下載報告] 總計: {stats.get('total', 0)} | 成功: {stats.get('success', 0)} | 失敗: {stats.get('fail', 0)}")
@@ -67,7 +53,7 @@ def run_market_pipeline(market_id, market_name, emoji):
     # --- Step 2: 數據分析 & 繪圖 ---
     print(f"\n【Step 2: 矩陣分析】正在計算 {market_name} 動能分布並生成圖表...")
     try:
-        # 呼叫分析核心，這會產生 9 張矩陣圖與報酬報表
+        # 呼叫分析核心
         img_paths, report_df, text_reports = analyzer.run_global_analysis(market_id=market_id)
         
         if report_df is None or report_df.empty:
@@ -98,8 +84,9 @@ def run_market_pipeline(market_id, market_name, emoji):
 
 def main():
     parser = argparse.ArgumentParser(description="Global Stock Monitor Orchestrator")
-    parser.add_argument('--market', type=str, default='all', 
-                        choices=['tw-share', 'us-share', 'hk-share', 'cn-share', 'jp-share', 'kr-share', 'all'])
+    # 將預設值改為 tw-share，並簡化選項
+    parser.add_argument('--market', type=str, default='tw-share', 
+                        choices=['tw-share'], help="僅支援台灣股市")
     args = parser.parse_args()
 
     start_time = time.time()
@@ -109,32 +96,20 @@ def main():
     now_str = now_utc8.strftime("%Y-%m-%d %H:%M:%S")
     
     print("\n" + "🚀 " + "="*55)
-    print(f"🚀 全球股市監控自動化系統啟動")
+    print(f"🚀 股市監控系統啟動 (台灣限定版)")
     print(f"🚀 啟動時間: {now_str} (UTC+8)")
-    print(f"🚀 執行目標: {args.market}")
     print("🚀 " + "="*55 + "\n")
 
-    # 市場配置表
+    # 鎖定市場配置：只保留台灣
     markets_config = {
-        "tw-share": {"name": "台灣股市", "emoji": "🇹🇼"},
-        "hk-share": {"name": "香港股市", "emoji": "🇭🇰"},
-        "cn-share": {"name": "中國股市", "emoji": "🇨🇳"},
-        "jp-share": {"name": "日本股市", "emoji": "🇯🇵"},
-        "kr-share": {"name": "韓國股市", "emoji": "🇰🇷"},
-        "us-share": {"name": "美國股市", "emoji": "🇺🇸"}
+        "tw-share": {"name": "台灣股市", "emoji": "🇹🇼"}
     }
 
-    if args.market == 'all':
-        # 依序執行所有市場
-        for m_id, m_info in markets_config.items():
-            run_market_pipeline(m_id, m_info["name"], m_info["emoji"])
-    else:
-        # 執行指定市場
-        m_info = markets_config.get(args.market)
-        if m_info:
-            run_market_pipeline(args.market, m_info["name"], m_info["emoji"])
-        else:
-            print(f"❌ 找不到對應的市場配置: {args.market}")
+    # 直接執行台灣股市流程
+    target_market = "tw-share"
+    m_info = markets_config[target_market]
+    
+    run_market_pipeline(target_market, m_info["name"], m_info["emoji"])
 
     end_time = time.time()
     total_duration = (end_time - start_time) / 60
