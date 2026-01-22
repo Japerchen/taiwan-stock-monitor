@@ -13,11 +13,7 @@ on:
         options:
           - all
           - tw-share
-          - us-share
-          - hk-share
-          - cn-share
-          - jp-share
-          - kr-share
+
 
 jobs:
   global-market-analysis:
